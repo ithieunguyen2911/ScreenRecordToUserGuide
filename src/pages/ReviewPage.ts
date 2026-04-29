@@ -51,10 +51,17 @@ export class ReviewPage {
   async exportToPDF(elementId: string): Promise<void> {
     this.isExporting = true;
     try {
-      await exportService.exportToPDF(elementId, this.fileName);
+      await exportService.exportToMultiPagePDF(elementId, this.fileName);
     } finally {
       this.isExporting = false;
     }
+  }
+
+  exportToWord(): void {
+    if (!this.guide) {
+      throw new Error('No guide available to export');
+    }
+    exportService.exportGuideToWord(this.guide, this.fileName);
   }
 
   isCurrentlyExporting(): boolean {

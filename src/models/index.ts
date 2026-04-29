@@ -4,6 +4,15 @@ export interface GuideStep {
   description: string;
   action: string;
   screenshot?: string;
+  focus?: ActionFocus;
+}
+
+export interface ActionFocus {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label?: string;
 }
 
 export interface UserGuide {
@@ -30,4 +39,16 @@ export interface RecordingResult {
   blob: Blob;
   mimeType: string;
   duration: number;
+  actions?: RecordedAction[];
+}
+
+export interface RecordedAction {
+  timestamp: number;
+  action: 'click' | 'type' | 'scroll';
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  target?: string;
 }
