@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { UserGuide } from '../models';
+import { guideDeduplicationService } from './GuideDeduplicationService';
 
 function getGenAI() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -70,7 +71,7 @@ Yêu cầu:
     if (!text) {
       throw new Error("AI không trả về nội dung hướng dẫn.");
     }
-    return JSON.parse(text) as UserGuide;
+    return guideDeduplicationService.dedupeGuide(JSON.parse(text) as UserGuide);
   }
 
   async summarizeNotes(notes: string): Promise<string> {
@@ -83,8 +84,9 @@ Yêu cầu:
   }
 
   async addScreenshotsToGuide(videoBlob: Blob, guide: UserGuide): Promise<UserGuide> {
+    const guideWithoutDuplicates = guideDeduplicationService.dedupeGuide(guide);
     const steps = [];
-    for (const step of guide.steps) {
+    for (const step of guideWithoutDuplicates.steps) {
       steps.push({
         ...step,
         screenshot: step.screenshot || await this.captureFrame(videoBlob, step.timestamp),
@@ -92,7 +94,7 @@ Yêu cầu:
     }
 
     return {
-      ...guide,
+      ...guideWithoutDuplicates,
       steps,
     };
   }

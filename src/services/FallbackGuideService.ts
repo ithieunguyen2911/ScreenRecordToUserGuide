@@ -1,4 +1,5 @@
 import { RecordedAction, UserGuide } from '../models';
+import { guideDeduplicationService } from './GuideDeduplicationService';
 import { stepTextService } from './StepTextService';
 
 function createTimelineSteps(durationSeconds: number) {
@@ -18,8 +19,9 @@ function createTimelineSteps(durationSeconds: number) {
 }
 
 export function createFallbackGuide(fileName: string, durationSeconds: number, actions: RecordedAction[] = []): UserGuide {
-  const steps = actions.length > 0
-    ? actions.map((action, index) => ({
+  const dedupedActions = guideDeduplicationService.dedupeActions(actions);
+  const steps = dedupedActions.length > 0
+    ? dedupedActions.map((action, index) => ({
         timestamp: action.timestamp,
         title: stepTextService.createTitle(action, index),
         description: stepTextService.createDescription(action),

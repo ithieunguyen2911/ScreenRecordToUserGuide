@@ -34,4 +34,30 @@ assert.equal(longGuide.steps.length, 8);
 assert.equal(longGuide.steps[0].timestamp, 0);
 assert.equal(longGuide.steps.at(-1)?.timestamp, 26.3);
 
+const duplicateGuide = createFallbackGuide('Duplicate_Clicks', 10, [
+  {
+    timestamp: 1,
+    action: 'click',
+    label: 'Click Save',
+    x: 20,
+    y: 30,
+    width: 10,
+    height: 8,
+    target: 'Save',
+    controlType: 'Button',
+  },
+  {
+    timestamp: 1.2,
+    action: 'click',
+    label: 'Click Save',
+    x: 20.5,
+    y: 30.2,
+    width: 10,
+    height: 8,
+    target: 'Save',
+    controlType: 'Button',
+  },
+]);
+assert.equal(duplicateGuide.steps.length, 1);
+
 console.log('FallbackGuide tests passed');
