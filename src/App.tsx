@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import ScreenRecorder from './components/ScreenRecorder';
 import GuideReview from './components/GuideReview';
 import RecordingSetup from './components/RecordingSetup';
-import { generateUserGuide } from './lib/gemini';
-import { Sparkles, Zap, Layout, Monitor, ArrowRight, Github } from 'lucide-react';
+import { guideService } from './services/GuideService';
+import { Sparkles, Zap, ArrowRight, Github } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { AppSettings, UserGuide } from './types';
+import { AppSettings, UserGuide } from './models';
 
 export default function App() {
   const [appState, setAppState] = useState<'setup' | 'recording' | 'processing' | 'review'>('setup');
@@ -22,7 +22,6 @@ export default function App() {
 
   const handleRecordingComplete = async (blob: Blob) => {
     setRecordedBlob(blob);
-    // Check file size (approx limit for inline data is usually around 10-20MB for flash)
     if (blob.size > 15 * 1024 * 1024) {
       setError("Video quá lớn (>15MB). Vui lòng quay ngắn hơn (dưới 1 phút) để AI có thể xử lý.");
       setAppState('setup');
@@ -31,45 +30,34 @@ export default function App() {
 
     setAppState('processing');
     setError(null);
-    
+
     try {
-      // Convert blob to base64 for Gemini
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = (reader.result as string).split(',')[1];
-        
-        try {
-          const guide = await generateUserGuide(base64String, blob.type);
-          if (guide) {
-            setGuideData(guide);
-            setAppState('review');
-            confetti({
-              particleCount: 150,
-              spread: 70,
-              origin: { y: 0.6 },
-              colors: ['#f97316', '#fb923c', '#ffffff']
-            });
-          }
-        } catch (err: any) {
-          console.error("AI Error Details:", err);
-          let msg = "Lỗi khi tạo hướng dẫn từ AI.";
-          const errorStr = JSON.stringify(err);
-          
-          if (errorStr.includes("400") || (err.message && err.message.includes("400"))) {
-            msg = "Video quá lớn hoặc không đúng định dạng để AI xử lý. Vui lòng quay ngắn hơn (< 30 giây).";
-          } else if (err.message && err.message.includes("API_KEY")) {
-            msg = "Lỗi API Key: Vui lòng kiểm tra lại cấu hình GEMINI_API_KEY trong mục Secrets.";
-          } else if (err.message) {
-            msg = `Lỗi AI: ${err.message}`;
-          }
-          setError(msg);
-          setAppState('setup');
-        }
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
-      console.error(err);
-      setError("Có lỗi xảy ra trong quá trình xử lý video.");
+      const base64String = await guideService.blobToBase64(blob);
+      const guide = await guideService.generateUserGuide(base64String, blob.type);
+
+      if (guide) {
+        setGuideData(guide);
+        setAppState('review');
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#f97316', '#fb923c', '#ffffff']
+        });
+      }
+    } catch (err: any) {
+      console.error("AI Error Details:", err);
+      let msg = "Lỗi khi tạo hướng dẫn từ AI.";
+      const errorStr = JSON.stringify(err);
+
+      if (errorStr.includes("400") || (err.message && err.message.includes("400"))) {
+        msg = "Video quá lớn hoặc không đúng định dạng để AI xử lý. Vui lòng quay ngắn hơn (< 30 giây).";
+      } else if (err.message && err.message.includes("API_KEY")) {
+        msg = "Lỗi API Key: Vui lòng kiểm tra lại cấu hình GEMINI_API_KEY trong mục Secrets.";
+      } else if (err.message) {
+        msg = `Lỗi AI: ${err.message}`;
+      }
+      setError(msg);
       setAppState('setup');
     }
   };
@@ -82,13 +70,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen font-sans selection:bg-orange-500/30">
-      {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-orange-500/5 blur-[120px]" />
         <div className="absolute -bottom-[10%] -right-[5%] w-[40%] h-[40%] rounded-full bg-orange-600/5 blur-[100px]" />
       </div>
 
-      {/* Navigation */}
       <nav className="sticky top-0 z-50 glass-panel border-x-0 border-t-0 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -100,13 +86,13 @@ export default function App() {
               <div className="h-0.5 w-full bg-orange-500/30 mt-0.5 rounded-full" />
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
              <button className="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold border border-zinc-700 transition-all">
                 v3.0.0 (New Edition)
              </button>
              {appState === 'review' && (
-               <button 
+               <button
                 onClick={reset}
                 className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-all"
                >
@@ -148,9 +134,9 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="pt-12"
             >
-              <ScreenRecorder 
-                isProcessing={appState === 'processing'} 
-                onRecordingComplete={handleRecordingComplete} 
+              <ScreenRecorder
+                isProcessing={appState === 'processing'}
+                onRecordingComplete={handleRecordingComplete}
                 settings={settings}
               />
             </motion.div>
@@ -164,9 +150,9 @@ export default function App() {
               exit={{ opacity: 0, x: -50 }}
               className="w-full"
             >
-              <GuideReview 
-                guide={guideData} 
-                fileName={settings?.fileName || 'UserGuide'} 
+              <GuideReview
+                guide={guideData}
+                fileName={settings?.fileName || 'UserGuide'}
                 videoBlob={recordedBlob || undefined}
               />
             </motion.div>

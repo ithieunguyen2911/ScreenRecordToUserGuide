@@ -1,13 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Camera, StopCircle, Video, Settings as SettingsIcon, Download, Sparkles, FileText, ChevronRight, History } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { Camera, StopCircle, Video, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-interface RecordingSettings {
-  quality: 'high' | 'medium' | 'low';
-  format: 'webm' | 'mp4';
-  includeAudio: boolean;
-  frameRate: number;
-}
+import { AppSettings } from '../models';
+import { recordingPage } from '../pages/RecordingPage';
 
 interface ScreenRecorderProps {
   onRecordingComplete: (blob: Blob) => void;
@@ -16,102 +11,64 @@ interface ScreenRecorderProps {
 }
 
 export default function ScreenRecorder({ onRecordingComplete, isProcessing, settings }: ScreenRecorderProps) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [recorderSettings, setRecorderSettings] = useState<RecordingSettings>({
-    quality: 'high',
-    format: 'webm',
-    includeAudio: settings?.useMicrophone ?? true,
-    frameRate: 30
-  });
-  const [showSettings, setShowSettings] = useState(false);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<number | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (isRecording) {
+    recordingPage.initialize(settings);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      recordingPage.cleanup();
+    };
+  }, [settings]);
+
+  useEffect(() => {
+    if (recordingPage.isCurrentlyRecording()) {
       timerRef.current = window.setInterval(() => {
-        setDuration(prev => prev + 1);
+        recordingPage.incrementDuration();
       }, 1000);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setDuration(0);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      recordingPage.resetDuration();
     }
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRecording]);
+  }, [recordingPage.isCurrentlyRecording()]);
 
-  const startRecording = async () => {
+  const handleStartRecording = async () => {
     try {
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          frameRate: recorderSettings.frameRate,
-          width: recorderSettings.quality === 'high' ? 1920 : recorderSettings.quality === 'medium' ? 1280 : 854,
-        },
-        audio: recorderSettings.includeAudio
-      });
-
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = displayStream;
-      }
-
-      const mimeType = recorderSettings.format === 'webm' ? 'video/webm;codecs=vp9' : 'video/mp4';
-      const mediaRecorder = new MediaRecorder(displayStream, {
-        mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : 'video/webm'
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
-        onRecordingComplete(blob);
-        displayStream.getTracks().forEach(track => track.stop());
-        if (videoPreviewRef.current) videoPreviewRef.current.srcObject = null;
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Error starting recording:", err);
-      alert("Không thể bắt đầu quay màn hình. Vui lòng cấp quyền truy cập.");
+      await recordingPage.startRecording(videoPreviewRef.current);
+      window.location.reload();
+    } catch {
+      // Error already handled in RecordingPage
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
+  const handleStopRecording = async () => {
+    await recordingPage.stopRecording();
+    onRecordingComplete(recordingPage.getRecorderSettings() as any);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  const recorderSettings = recordingPage.getRecorderSettings();
+  const showSettings = recordingPage.shouldShowSettings();
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       <div className="relative aspect-video bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center group">
-        <video 
-          ref={videoPreviewRef} 
-          autoPlay 
-          muted 
+        <video
+          ref={videoPreviewRef}
+          autoPlay
+          muted
           className="w-full h-full object-contain"
         />
-        
-        {!isRecording && !isProcessing && (
+
+        {!recordingPage.isCurrentlyRecording() && !isProcessing && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity group-hover:bg-black/50">
             <div className="p-6 rounded-full bg-white/10 border border-white/20 mb-4 animate-pulse">
               <Video className="w-12 h-12 text-white" />
@@ -136,18 +93,18 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
           </div>
         )}
 
-        {isRecording && (
+        {recordingPage.isCurrentlyRecording() && (
           <div className="absolute top-6 left-6 flex items-center gap-3 px-4 py-2 bg-red-500/20 backdrop-blur-md border border-red-500/30 rounded-full">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">Recording</span>
-            <span className="text-xs font-mono text-white border-l border-white/20 pl-3">{formatTime(duration)}</span>
+            <span className="text-xs font-mono text-white border-l border-white/20 pl-3">{recordingPage.formatTime(recordingPage.getDuration())}</span>
           </div>
         )}
 
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
-          {!isRecording ? (
+          {!recordingPage.isCurrentlyRecording() ? (
             <button
-              onClick={startRecording}
+              onClick={handleStartRecording}
               disabled={isProcessing}
               className="group relative px-8 py-4 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-bold flex items-center gap-3 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
             >
@@ -156,17 +113,17 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
             </button>
           ) : (
             <button
-              onClick={stopRecording}
+              onClick={handleStopRecording}
               className="px-8 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-bold flex items-center gap-3 shadow-xl transition-all active:scale-95"
             >
               <StopCircle className="w-5 h-5 text-red-600" />
               Dừng quay
             </button>
           )}
-          
-          {!isRecording && !isProcessing && (
+
+          {!recordingPage.isCurrentlyRecording() && !isProcessing && (
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => recordingPage.toggleSettingsPanel()}
               className="p-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl border border-zinc-700 transition-all"
               title="Cài đặt"
             >
@@ -186,9 +143,9 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
           >
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold block">Chất lượng</label>
-              <select 
+              <select
                 value={recorderSettings.quality}
-                onChange={(e) => setRecorderSettings({...recorderSettings, quality: e.target.value as any})}
+                onChange={(e) => recordingPage.updateRecorderSettings({ quality: e.target.value as any })}
                 className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
               >
                 <option value="high">4K/1080p (Rõ nét)</option>
@@ -199,9 +156,9 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold block">Định dạng</label>
-              <select 
+              <select
                 value={recorderSettings.format}
-                onChange={(e) => setRecorderSettings({...recorderSettings, format: e.target.value as any})}
+                onChange={(e) => recordingPage.updateRecorderSettings({ format: e.target.value as any })}
                 className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
               >
                 <option value="webm">WebM (Tốt cho Web)</option>
@@ -211,8 +168,8 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold block">Âm thanh</label>
-              <button 
-                onClick={() => setRecorderSettings({...recorderSettings, includeAudio: !recorderSettings.includeAudio})}
+              <button
+                onClick={() => recordingPage.updateRecorderSettings({ includeAudio: !recorderSettings.includeAudio })}
                 className={`w-full flex items-center justify-between px-4 py-2 rounded-xl text-sm border transition-all ${
                   recorderSettings.includeAudio ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'
                 }`}
@@ -225,11 +182,11 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold block">Tốc độ khung hình</label>
               <div className="flex items-center gap-4">
-                <input 
-                  type="range" 
-                  min="15" max="60" step="15" 
+                <input
+                  type="range"
+                  min="15" max="60" step="15"
                   value={recorderSettings.frameRate}
-                  onChange={(e) => setRecorderSettings({...recorderSettings, frameRate: parseInt(e.target.value)})}
+                  onChange={(e) => recordingPage.updateRecorderSettings({ frameRate: parseInt(e.target.value) })}
                   className="w-full accent-orange-500"
                 />
                 <span className="text-sm font-mono text-zinc-300 w-12">{recorderSettings.frameRate}fps</span>

@@ -1,20 +1,2 @@
-export interface GuideStep {
-  timestamp: number;
-  title: string;
-  description: string;
-  action: string;
-  screenshot?: string; // base64
-}
-
-export interface UserGuide {
-  title: string;
-  introduction: string;
-  steps: GuideStep[];
-  importantNotes: string[];
-}
-
-export interface AppSettings {
-  fileName: string;
-  useMicrophone: boolean;
-  saveToLocal: boolean;
-}
+// Re-export from models for backwards compatibility
+export type { GuideStep, UserGuide, AppSettings, RecordingSettings, RecordingResult } from './models';

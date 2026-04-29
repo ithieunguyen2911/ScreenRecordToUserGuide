@@ -1,68 +1,48 @@
-import React, { useState } from 'react';
-import { UserGuide } from '../types';
+import React, { useEffect } from 'react';
+import { UserGuide } from '../models';
 import { motion } from 'motion/react';
 import { List, Download, Share2, ChevronRight, Play, Bookmark, Clock, MousePointer2, Type, Scroll, Info } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { reviewPage } from '../pages/ReviewPage';
 
 interface GuideReviewProps {
   guide: UserGuide;
   fileName: string;
-  videoBlob?: Blob; // Optional original video
+  videoBlob?: Blob;
 }
 
+const getActionIcon = (action: string) => {
+  switch (action.toLowerCase()) {
+    case 'click': return <MousePointer2 className="w-4 h-4" />;
+    case 'type': return <Type className="w-4 h-4" />;
+    case 'scroll': return <Scroll className="w-4 h-4" />;
+    default: return <ChevronRight className="w-4 h-4" />;
+  }
+};
+
 export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewProps) {
-  const [activeStep, setActiveStep] = useState<number | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
+  useEffect(() => {
+    reviewPage.initialize(guide, fileName);
+  }, [guide, fileName]);
 
-  const downloadVideo = () => {
-    if (!videoBlob) return;
-    const url = URL.createObjectURL(videoBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName}.webm`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleScrollToStep = (idx: number) => {
+    reviewPage.scrollToStep(idx);
   };
 
-  const getActionIcon = (action: string) => {
-    switch (action.toLowerCase()) {
-      case 'click': return <MousePointer2 className="w-4 h-4" />;
-      case 'type': return <Type className="w-4 h-4" />;
-      case 'scroll': return <Scroll className="w-4 h-4" />;
-      default: return <ChevronRight className="w-4 h-4" />;
+  const handleDownloadVideo = () => {
+    if (videoBlob) {
+      reviewPage.downloadVideo(videoBlob);
     }
   };
 
-  const exportToPDF = async () => {
-    setIsExporting(true);
-    try {
-      const element = document.getElementById('full-guide-content');
-      if (!element) return;
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${fileName}.pdf`);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsExporting(false);
-    }
+  const handleExportPDF = async () => {
+    await reviewPage.exportToPDF('full-guide-content');
   };
+
+  const activeStep = reviewPage.getActiveStep();
+  const isExporting = reviewPage.isCurrentlyExporting();
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl mx-auto items-start">
-      {/* Sidebar Table of Contents */}
       <aside className="w-full lg:w-72 glass-panel p-6 sticky top-24 shrink-0">
         <div className="flex items-center gap-2 mb-8 ml-2">
           <List className="w-4 h-4 text-orange-500" />
@@ -70,9 +50,9 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
         </div>
 
         <nav className="space-y-1">
-          <button 
+          <button
             onClick={() => {
-              setActiveStep(null);
+              reviewPage.setActiveStep(null);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
@@ -86,11 +66,7 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
           {guide.steps.map((step, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setActiveStep(idx);
-                const el = document.getElementById(`step-${idx}`);
-                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
+              onClick={() => handleScrollToStep(idx)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-left ${
                 activeStep === idx ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-zinc-500 hover:bg-zinc-900 group'
               }`}
@@ -106,7 +82,6 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
         </nav>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 space-y-10 min-w-0">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -120,8 +95,8 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
           </div>
 
           <div className="flex items-center gap-3">
-             <button 
-              onClick={downloadVideo}
+             <button
+              onClick={handleDownloadVideo}
               disabled={!videoBlob}
               className="p-3 bg-zinc-900/50 hover:bg-zinc-800 text-orange-500 rounded-xl border border-zinc-800 transition-all title='Tải video gốc' disabled:opacity-30"
              >
@@ -130,8 +105,8 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
              <button className="p-3 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 rounded-xl border border-zinc-800 transition-all">
                 <Share2 className="w-4 h-4" />
              </button>
-             <button 
-              onClick={exportToPDF}
+             <button
+              onClick={handleExportPDF}
               disabled={isExporting}
               className="flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-orange-500/20 active:scale-95"
              >
@@ -142,7 +117,6 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
         </div>
 
         <div id="full-guide-content" className="space-y-16">
-          {/* Introduction Section */}
           <section className="bg-zinc-950 border border-zinc-900 rounded-[2.5rem] p-10 space-y-6">
             <div className="flex items-center gap-2">
               <span className="text-[10px] items-center font-black uppercase tracking-widest text-orange-500 px-3 py-1 bg-orange-500/10 rounded-full border border-orange-500/20">Introduction</span>
@@ -150,10 +124,9 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
             <p className="text-zinc-400 text-lg leading-relaxed">{guide.introduction}</p>
           </section>
 
-          {/* Steps List */}
           <div className="space-y-12">
             {guide.steps.map((step, idx) => (
-              <motion.section 
+              <motion.section
                 key={idx}
                 id={`step-${idx}`}
                 initial={{ opacity: 0, y: 30 }}
@@ -161,11 +134,10 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
                 viewport={{ once: true }}
                 className={`relative pl-24 group ${activeStep === idx ? 'opacity-100' : 'opacity-80 hover:opacity-100'}`}
               >
-                {/* Step Marker */}
                 <div className="absolute left-0 top-0 flex flex-col items-center gap-3">
                   <div className={`w-14 h-14 rounded-3xl flex items-center justify-center font-black text-xl transition-all border-4 shadow-2xl ${
-                    activeStep === idx 
-                    ? 'bg-orange-500 border-orange-500/50 scale-110 shadow-orange-500/40' 
+                    activeStep === idx
+                    ? 'bg-orange-500 border-orange-500/50 scale-110 shadow-orange-500/40'
                     : 'bg-zinc-950 border-zinc-900 group-hover:border-zinc-800'
                   }`}>
                     {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
@@ -188,8 +160,7 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
 
                   <div className="glass-panel p-8 space-y-4">
                     <p className="text-zinc-400 leading-relaxed font-medium">{step.description}</p>
-                    
-                    {/* Placeholder for screenshot if provided, otherwise show action detail */}
+
                     <div className="aspect-video bg-zinc-950 rounded-2xl border border-zinc-900 flex items-center justify-center group overflow-hidden relative">
                       {step.screenshot ? (
                         <img src={step.screenshot} className="w-full h-full object-cover" alt={step.title} />
@@ -199,8 +170,7 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
                           <span className="text-[10px] font-black uppercase tracking-widest text-zinc-700">Video Capture Segment</span>
                         </div>
                       )}
-                      
-                      {/* Action Overlay simulation */}
+
                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                          <div className="relative">
                             <div className="w-12 h-12 rounded-full border-4 border-orange-500 animate-ping absolute inset-0" />
@@ -216,7 +186,6 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
             ))}
           </div>
 
-          {/* Important Notes */}
           <section className="bg-orange-500/5 border border-orange-500/10 rounded-[2.5rem] p-10 space-y-8">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center rotate-12">
@@ -224,7 +193,7 @@ export default function GuideReview({ guide, fileName, videoBlob }: GuideReviewP
               </div>
               <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Lưu ý quan trọng</h2>
             </div>
-            
+
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {guide.importantNotes.map((note, idx) => (
                 <li key={idx} className="flex gap-4 p-6 bg-zinc-950 rounded-3xl border border-zinc-900 group hover:border-orange-500/30 transition-all">

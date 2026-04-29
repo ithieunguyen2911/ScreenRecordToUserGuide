@@ -1,38 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Monitor, Mic, MicOff, Folder, Play, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { AppSettings } from '../types';
+import { AppSettings } from '../models';
+import { setupPage } from '../pages/SetupPage';
 
 interface RecordingSetupProps {
   onStart: (settings: AppSettings) => void;
 }
 
 export default function RecordingSetup({ onStart }: RecordingSetupProps) {
-  const [settings, setSettings] = useState<AppSettings>({
-    fileName: `Record_${new Date().toLocaleDateString().replace(/\//g, '-')}_${new Date().toLocaleTimeString().replace(/:/g, '-')}`,
-    useMicrophone: false,
-    saveToLocal: true,
-  });
-
-  const [micPermission, setMicPermission] = useState<'prompt' | 'granted' | 'denied'>('prompt');
+  const settings = setupPage.getSettings();
+  const micPermission = setupPage.getMicPermission();
 
   const handleMicToggle = async () => {
-    if (!settings.useMicrophone) {
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        setMicPermission('granted');
-        setSettings({ ...settings, useMicrophone: true });
-      } catch (err) {
-        setMicPermission('denied');
-        alert("Không thể truy cập microphone. Vui lòng cấp quyền trong cài đặt trình duyệt.");
-      }
-    } else {
-      setSettings({ ...settings, useMicrophone: false });
-    }
+    await setupPage.toggleMicrophone();
+    window.location.reload();
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-2xl mx-auto"
@@ -44,14 +30,13 @@ export default function RecordingSetup({ onStart }: RecordingSetupProps) {
         </div>
 
         <div className="space-y-8">
-          {/* File Name */}
           <div className="space-y-3">
             <label className="text-[10px] uppercase tracking-[0.2em] text-orange-500 font-black block ml-1">TÊN FILE HƯỚNG DẪN</label>
             <div className="relative group">
-              <input 
+              <input
                 type="text"
                 value={settings.fileName}
-                onChange={(e) => setSettings({...settings, fileName: e.target.value})}
+                onChange={(e) => setupPage.setSettings({ fileName: e.target.value })}
                 className="w-full bg-zinc-950/50 border-2 border-zinc-900 focus:border-orange-500/50 text-white rounded-2xl px-6 py-4 outline-none transition-all font-bold placeholder:text-zinc-700"
                 placeholder="VD: Huong_dan_su_dung_app"
               />
@@ -62,12 +47,11 @@ export default function RecordingSetup({ onStart }: RecordingSetupProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Microphone Toggle */}
-            <button 
+            <button
               onClick={handleMicToggle}
               className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col items-start gap-4 text-left group ${
-                settings.useMicrophone 
-                ? 'bg-orange-500/10 border-orange-500/50 ring-4 ring-orange-500/10' 
+                settings.useMicrophone
+                ? 'bg-orange-500/10 border-orange-500/50 ring-4 ring-orange-500/10'
                 : 'bg-zinc-950/50 border-zinc-900 hover:border-zinc-800'
               }`}
             >
@@ -87,7 +71,6 @@ export default function RecordingSetup({ onStart }: RecordingSetupProps) {
               )}
             </button>
 
-            {/* Storage Placeholder (Web limitation disclaimer) */}
             <div className="p-6 rounded-3xl border-2 bg-zinc-950/50 border-zinc-900 flex flex-col items-start gap-4 text-left group opacity-60">
               <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center">
                 <Folder className="w-6 h-6 text-zinc-500" />
@@ -100,8 +83,8 @@ export default function RecordingSetup({ onStart }: RecordingSetupProps) {
           </div>
         </div>
 
-        <button 
-          onClick={() => onStart(settings)}
+        <button
+          onClick={() => setupPage.onStart(onStart)}
           className="w-full py-6 bg-white text-black hover:bg-orange-500 hover:text-white rounded-3xl font-black text-lg uppercase tracking-widest flex items-center justify-center gap-4 transition-all shadow-2xl hover:shadow-orange-500/30 active:scale-[0.98]"
         >
           <Play className="w-6 h-6 fill-current" />
