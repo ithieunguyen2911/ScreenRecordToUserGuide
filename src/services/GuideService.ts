@@ -87,7 +87,7 @@ Yêu cầu:
     for (const step of guide.steps) {
       steps.push({
         ...step,
-        screenshot: step.screenshot ?? await this.captureFrame(videoBlob, step.timestamp),
+        screenshot: step.screenshot || await this.captureFrame(videoBlob, step.timestamp),
       });
     }
 

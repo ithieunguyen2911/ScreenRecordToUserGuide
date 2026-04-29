@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, RecordingResult, RecordingSettings } from '../models';
 import { recordingService } from '../services/RecordingService';
 import { interactionCaptureService } from '../services/InteractionCaptureService';
+import { desktopHelperService } from '../services/DesktopHelperService';
 
 interface ScreenRecorderProps {
   onRecordingComplete: (result: RecordingResult) => void;
@@ -57,6 +58,7 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
   const handleStartRecording = async () => {
     try {
       await recordingService.startRecording(recorderSettings, videoPreviewRef.current);
+      await desktopHelperService.start();
       interactionCaptureService.start(videoPreviewRef.current);
       setIsRecording(true);
     } catch (err) {
@@ -67,7 +69,9 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
 
   const handleStopRecording = async () => {
     const result = await recordingService.stopRecording();
-    result.actions = interactionCaptureService.stop();
+    const browserActions = interactionCaptureService.stop();
+    const desktopActions = await desktopHelperService.stop();
+    result.actions = desktopActions.length > 0 ? desktopActions : browserActions;
     setIsRecording(false);
     onRecordingComplete(result);
   };

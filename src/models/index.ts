@@ -51,4 +51,27 @@ export interface RecordedAction {
   width: number;
   height: number;
   target?: string;
+  screenshot?: string;
+}
+
+export interface DesktopHelperStatus {
+  ok: boolean;
+  isRecording: boolean;
+  actionCount: number;
+}
+
+export interface DesktopHelperAction {
+  timestamp: number;
+  type: 'click' | 'type' | 'scroll';
+  screenX: number;
+  screenY: number;
+  width: number;
+  height: number;
+  screenLeft: number;
+  screenTop: number;
+  screenWidth: number;
+  screenHeight: number;
+  label: string;
+  screenshot: string;
+  capturedAt: string;
 }

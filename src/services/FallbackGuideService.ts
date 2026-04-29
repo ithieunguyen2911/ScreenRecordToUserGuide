@@ -32,6 +32,7 @@ export function createFallbackGuide(fileName: string, durationSeconds: number, a
           height: action.height,
           label: action.label,
         },
+        screenshot: action.screenshot,
       }))
     : createTimelineSteps(durationSeconds);
 

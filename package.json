@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test:recording": "tsx tests/recordingService.test.ts && tsx tests/fallbackGuide.test.ts && tsx tests/actionFocus.test.ts && tsx tests/guideEditor.test.ts"
+    "test:recording": "tsx tests/recordingService.test.ts && tsx tests/fallbackGuide.test.ts && tsx tests/actionFocus.test.ts && tsx tests/guideEditor.test.ts && tsx tests/desktopHelper.test.ts",
+    "helper:dev": "dotnet run --project desktop-helper/ScreenGuide.DesktopHelper/ScreenGuide.DesktopHelper.csproj"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
