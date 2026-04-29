@@ -54,6 +54,10 @@ globalForTest.Image = class MockImage {
   }
 };
 
+let fillRectCalls = 0;
+let strokeRectCalls = 0;
+let fillTextCalls = 0;
+
 globalForTest.document = {
   createElement: (tagName: string) => {
     assert.equal(tagName, 'canvas');
@@ -63,7 +67,29 @@ globalForTest.document = {
       getContext: () => ({
         imageSmoothingEnabled: false,
         imageSmoothingQuality: 'low',
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        font: '',
+        textBaseline: '',
         drawImage: () => undefined,
+        save: () => undefined,
+        restore: () => undefined,
+        fillRect: () => {
+          fillRectCalls += 1;
+        },
+        strokeRect: () => {
+          strokeRectCalls += 1;
+        },
+        beginPath: () => undefined,
+        moveTo: () => undefined,
+        lineTo: () => undefined,
+        quadraticCurveTo: () => undefined,
+        closePath: () => undefined,
+        fill: () => undefined,
+        fillText: () => {
+          fillTextCalls += 1;
+        },
       }),
       toDataURL: (mimeType: string) => {
         assert.equal(mimeType, 'image/png');
@@ -75,6 +101,12 @@ globalForTest.document = {
 
 const resizedGuide = await service.prepareGuideForWord(guide);
 assert.equal(resizedGuide.steps[0].screenshot, 'data:image/png;base64,resized-image');
+
+const focusGuide = await service.prepareGuideForWord(guide, { includeFocusOverlay: true });
+assert.equal(focusGuide.steps[0].screenshot, 'data:image/png;base64,resized-image');
+assert.equal(fillRectCalls >= 4, true);
+assert.equal(strokeRectCalls >= 1, true);
+assert.equal(fillTextCalls >= 1, true);
 
 globalForTest.Image = originalImage;
 globalForTest.document = originalDocument;

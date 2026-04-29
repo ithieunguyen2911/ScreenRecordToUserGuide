@@ -1,4 +1,4 @@
-import { GuideStep, UserGuide } from '../models';
+import { ActionFocus, GuideStep, UserGuide } from '../models';
 
 export class GuideEditorService {
   updateGuide(guide: UserGuide, changes: Partial<Pick<UserGuide, 'title' | 'introduction' | 'importantNotes'>>): UserGuide {
@@ -15,6 +15,34 @@ export class GuideEditorService {
       steps: guide.steps.map((step, stepIndex) => (
         stepIndex === index ? { ...step, ...changes } : step
       )),
+    };
+  }
+
+  updateStepFocus(guide: UserGuide, index: number, changes: Partial<ActionFocus>): UserGuide {
+    const currentFocus = guide.steps[index]?.focus ?? {
+      x: 42,
+      y: 42,
+      width: 16,
+      height: 10,
+      label: 'Click here',
+    };
+
+    const nextFocus = this.clampFocus({
+      ...currentFocus,
+      ...changes,
+    });
+
+    return this.updateStep(guide, index, { focus: nextFocus });
+  }
+
+  deleteStepFocus(guide: UserGuide, index: number): UserGuide {
+    return {
+      ...guide,
+      steps: guide.steps.map((step, stepIndex) => {
+        if (stepIndex !== index) return step;
+        const { focus: _focus, ...stepWithoutFocus } = step;
+        return stepWithoutFocus;
+      }),
     };
   }
 
@@ -60,6 +88,32 @@ export class GuideEditorService {
       ...guide,
       importantNotes: guide.importantNotes.filter((_, noteIndex) => noteIndex !== index),
     };
+  }
+
+  private clampFocus(focus: ActionFocus): ActionFocus {
+    const width = this.clamp(focus.width, 3, 100);
+    const height = this.clamp(focus.height, 3, 100);
+    const x = this.clamp(focus.x, 0, 100 - width);
+    const y = this.clamp(focus.y, 0, 100 - height);
+    const labelWidth = this.clamp(focus.labelWidth ?? 18, 8, 60);
+    const labelX = this.clamp(focus.labelX ?? Math.min(x + width + 2, 100 - labelWidth), 0, 100 - labelWidth);
+    const labelY = this.clamp(focus.labelY ?? Math.max(y - 9, 4), 0, 94);
+
+    return {
+      ...focus,
+      x,
+      y,
+      width,
+      height,
+      labelX,
+      labelY,
+      labelWidth,
+    };
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value)) return min;
+    return Math.min(Math.max(value, min), max);
   }
 }
 

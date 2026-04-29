@@ -5,7 +5,6 @@ import {
   ArrowUp,
   ChevronRight,
   Clock,
-  CornerDownRight,
   Download,
   FileText,
   List,
@@ -20,6 +19,7 @@ import { UserGuide } from '../models';
 import { reviewPage } from '../pages/ReviewPage';
 import { getStepFocus } from '../services/ActionFocusService';
 import { guideEditorService } from '../services/GuideEditorService';
+import FocusEditor, { defaultFocus } from './FocusEditor';
 
 interface GuideReviewProps {
   guide: UserGuide;
@@ -39,35 +39,6 @@ const getActionIcon = (action: string) => {
     default:
       return <ChevronRight className="w-4 h-4" />;
   }
-};
-
-const ActionFocusOverlay = ({ step, index }: { step: UserGuide['steps'][number]; index: number }) => {
-  if (!step.focus) return null;
-  const focus = getStepFocus(step, index);
-  const labelX = Math.min(focus.x + focus.width + 2, 78);
-  const labelY = Math.max(focus.y - 9, 4);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      <div className="absolute inset-0 bg-black/45" />
-      <div
-        className="absolute rounded-md border-4 border-orange-400 bg-orange-400/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35),0_0_28px_rgba(251,146,60,0.75)]"
-        style={{
-          left: `${focus.x}%`,
-          top: `${focus.y}%`,
-          width: `${focus.width}%`,
-          height: `${focus.height}%`,
-        }}
-      />
-      <div
-        className="absolute flex items-center gap-2 rounded-lg bg-black/85 px-3 py-2 text-sm font-bold text-white shadow-xl ring-1 ring-white/15"
-        style={{ left: `${labelX}%`, top: `${labelY}%` }}
-      >
-        <CornerDownRight className="w-4 h-4 text-orange-400" />
-        <span>{focus.label}</span>
-      </div>
-    </div>
-  );
 };
 
 export default function GuideReview({ guide, fileName, videoBlob, onGuideChange }: GuideReviewProps) {
@@ -110,6 +81,15 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
     setIsExporting(true);
     try {
       await reviewPage.exportToWord();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportWordWithFocus = async () => {
+    setIsExporting(true);
+    try {
+      await reviewPage.exportToWord(true);
     } finally {
       setIsExporting(false);
     }
@@ -197,6 +177,14 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
             >
               {isExporting ? <div className="w-4 h-4 border-2 border-zinc-500/30 border-t-zinc-100 rounded-full animate-spin" /> : <FileText className="w-4 h-4" />}
               Word
+            </button>
+            <button
+              onClick={handleExportWordWithFocus}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-50 text-orange-300 rounded-xl text-sm font-black uppercase tracking-widest border border-orange-500/30 transition-all active:scale-95"
+            >
+              {isExporting ? <div className="w-4 h-4 border-2 border-orange-500/30 border-t-orange-200 rounded-full animate-spin" /> : <MousePointer2 className="w-4 h-4" />}
+              Word + Focus
             </button>
             <button
               onClick={handleExportPDF}
@@ -316,20 +304,82 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
                       onChange={(event) => updateGuide(guideEditorService.updateStep(guide, idx, { description: event.target.value }))}
                       className="min-h-24 w-full rounded-xl border border-zinc-200 px-4 py-3 text-zinc-700 outline-none focus:border-orange-400"
                     />
-                    {step.focus && (
-                      <input
-                        value={step.focus.label ?? ''}
-                        onChange={(event) => updateGuide(guideEditorService.updateStep(guide, idx, {
-                          focus: { ...step.focus!, label: event.target.value },
-                        }))}
-                        className="w-full rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 outline-none focus:border-orange-400"
-                        placeholder="Focus label"
-                      />
-                    )}
+                    <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700">Focus editor</span>
+                        <div className="flex items-center gap-2">
+                          {!step.focus && (
+                            <button
+                              type="button"
+                              onClick={() => updateGuide(guideEditorService.updateStepFocus(guide, idx, defaultFocus))}
+                              className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-orange-600"
+                            >
+                              Add focus
+                            </button>
+                          )}
+                          {step.focus && (
+                            <button
+                              type="button"
+                              onClick={() => updateGuide(guideEditorService.deleteStepFocus(guide, idx))}
+                              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-wider text-red-600 hover:bg-red-50"
+                            >
+                              Delete focus
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {step.focus && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                          <input
+                            value={step.focus.label ?? ''}
+                            onChange={(event) => updateGuide(guideEditorService.updateStepFocus(guide, idx, { label: event.target.value }))}
+                            className="md:col-span-2 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 outline-none focus:border-orange-400"
+                            placeholder="Focus label"
+                          />
+                          {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                            <label key={field} className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold uppercase text-zinc-500">
+                              {field}
+                              <input
+                                type="number"
+                                min={field === 'width' || field === 'height' ? 3 : 0}
+                                max={100}
+                                step={0.5}
+                                value={Number(step.focus?.[field] ?? 0).toFixed(1)}
+                                onChange={(event) => updateGuide(guideEditorService.updateStepFocus(guide, idx, {
+                                  [field]: Number(event.target.value),
+                                }))}
+                                className="min-w-0 flex-1 bg-transparent text-right font-mono text-zinc-800 outline-none"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {step.focus && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                          {(['labelX', 'labelY', 'labelWidth'] as const).map((field) => (
+                            <label key={field} className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold uppercase text-zinc-500">
+                              {field.replace('label', 'label ')}
+                              <input
+                                type="number"
+                                min={field === 'labelWidth' ? 8 : 0}
+                                max={100}
+                                step={0.5}
+                                value={Number(step.focus?.[field] ?? 0).toFixed(1)}
+                                onChange={(event) => updateGuide(guideEditorService.updateStepFocus(guide, idx, {
+                                  [field]: Number(event.target.value),
+                                }))}
+                                className="min-w-0 flex-1 bg-transparent text-right font-mono text-zinc-800 outline-none"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="aspect-video bg-zinc-950 rounded-2xl border border-zinc-200 flex items-center justify-center overflow-hidden relative">
                       {step.screenshot ? (
-                        <img src={step.screenshot} className="w-full h-full object-cover" alt={step.title} />
+                        <img src={step.screenshot} className="w-full h-full object-contain" alt={step.title} />
                       ) : (
                         <div className="flex flex-col items-center gap-4 opacity-70">
                           <Play className="w-12 h-12 text-zinc-800" />
@@ -337,7 +387,12 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
                         </div>
                       )}
 
-                      <ActionFocusOverlay step={step} index={idx} />
+                      <FocusEditor
+                        focus={step.focus ? getStepFocus(step, idx) : undefined}
+                        onAdd={() => updateGuide(guideEditorService.updateStepFocus(guide, idx, defaultFocus))}
+                        onDelete={() => updateGuide(guideEditorService.deleteStepFocus(guide, idx))}
+                        onChange={(focus) => updateGuide(guideEditorService.updateStepFocus(guide, idx, focus))}
+                      />
                     </div>
                   </div>
                 </div>

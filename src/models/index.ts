@@ -13,6 +13,9 @@ export interface ActionFocus {
   width: number;
   height: number;
   label?: string;
+  labelX?: number;
+  labelY?: number;
+  labelWidth?: number;
 }
 
 export interface UserGuide {

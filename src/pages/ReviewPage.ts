@@ -57,11 +57,11 @@ export class ReviewPage {
     }
   }
 
-  async exportToWord(): Promise<void> {
+  async exportToWord(includeFocusOverlay = false): Promise<void> {
     if (!this.guide) {
       throw new Error('No guide available to export');
     }
-    await exportService.exportGuideToWord(this.guide, this.fileName);
+    await exportService.exportGuideToWord(this.guide, this.fileName, { includeFocusOverlay });
   }
 
   isCurrentlyExporting(): boolean {

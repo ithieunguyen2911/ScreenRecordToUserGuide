@@ -1,6 +1,11 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { UserGuide } from '../models';
+import { ActionFocus, UserGuide } from '../models';
+import { getStepFocus } from './ActionFocusService';
+
+interface WordExportOptions {
+  includeFocusOverlay?: boolean;
+}
 
 export class ExportService {
   private readonly wordContentWidth = '6.25in';
@@ -210,11 +215,11 @@ export class ExportService {
     `;
   }
 
-  async prepareGuideForWord(guide: UserGuide): Promise<UserGuide> {
-    const steps = await Promise.all(guide.steps.map(async (step) => ({
+  async prepareGuideForWord(guide: UserGuide, options: WordExportOptions = {}): Promise<UserGuide> {
+    const steps = await Promise.all(guide.steps.map(async (step, index) => ({
       ...step,
       screenshot: step.screenshot
-        ? await this.resizeImageDataUrl(step.screenshot, this.wordImageSourceMaxWidthPixels)
+        ? await this.prepareWordScreenshot(step.screenshot, step.focus ? getStepFocus(step, index) : undefined, options)
         : step.screenshot,
     })));
 
@@ -224,14 +229,107 @@ export class ExportService {
     };
   }
 
-  async exportGuideToWord(guide: UserGuide, fileName: string): Promise<void> {
-    const resizedGuide = await this.prepareGuideForWord(guide);
+  async exportGuideToWord(guide: UserGuide, fileName: string, options: WordExportOptions = {}): Promise<void> {
+    const resizedGuide = await this.prepareGuideForWord(guide, options);
     const html = this.buildWordHtml(resizedGuide);
 
     this.downloadBlob(
       new Blob([html], { type: 'application/msword;charset=utf-8' }),
       `${fileName}.doc`
     );
+  }
+
+  private async prepareWordScreenshot(src: string, focus: ActionFocus | undefined, options: WordExportOptions): Promise<string> {
+    if (options.includeFocusOverlay && focus) {
+      return this.renderFocusOverlayImage(src, focus, this.wordImageSourceMaxWidthPixels);
+    }
+
+    return this.resizeImageDataUrl(src, this.wordImageSourceMaxWidthPixels);
+  }
+
+  private renderFocusOverlayImage(src: string, focus: ActionFocus, maxWidth: number): Promise<string> {
+    if (!src.startsWith('data:image/') || typeof Image === 'undefined' || typeof document === 'undefined') {
+      return Promise.resolve(src);
+    }
+
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = image.naturalWidth > maxWidth ? maxWidth / image.naturalWidth : 1;
+        canvas.width = Math.round(image.naturalWidth * scale);
+        canvas.height = Math.round(image.naturalHeight * scale);
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          resolve(src);
+          return;
+        }
+
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        this.drawFocusOverlay(context, canvas.width, canvas.height, focus);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.onerror = () => resolve(src);
+      image.src = src;
+    });
+  }
+
+  private drawFocusOverlay(context: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number, focus: ActionFocus): void {
+    const x = (focus.x / 100) * canvasWidth;
+    const y = (focus.y / 100) * canvasHeight;
+    const width = (focus.width / 100) * canvasWidth;
+    const height = (focus.height / 100) * canvasHeight;
+    const labelWidthPercent = focus.labelWidth ?? 18;
+    const labelXPercent = focus.labelX ?? Math.min(focus.x + focus.width + 2, 100 - labelWidthPercent);
+    const labelYPercent = focus.labelY ?? Math.max(focus.y - 9, 4);
+    const labelX = (labelXPercent / 100) * canvasWidth;
+    const labelY = (labelYPercent / 100) * canvasHeight;
+    const labelWidth = (labelWidthPercent / 100) * canvasWidth;
+    const labelHeight = Math.max(34, canvasHeight * 0.045);
+
+    context.save();
+    context.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    context.fillRect(0, 0, canvasWidth, y);
+    context.fillRect(0, y, x, height);
+    context.fillRect(x + width, y, canvasWidth - x - width, height);
+    context.fillRect(0, y + height, canvasWidth, canvasHeight - y - height);
+
+    context.strokeStyle = '#fb923c';
+    context.lineWidth = Math.max(4, canvasWidth * 0.003);
+    context.strokeRect(x, y, width, height);
+
+    this.roundRect(context, labelX, labelY, labelWidth, labelHeight, 8);
+    context.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    context.fill();
+    context.fillStyle = '#ffffff';
+    context.font = `700 ${Math.max(14, Math.round(canvasWidth * 0.011))}px Arial`;
+    context.textBaseline = 'middle';
+    context.fillText(focus.label || 'Action', labelX + 14, labelY + labelHeight / 2, labelWidth - 24);
+    context.restore();
+  }
+
+  private roundRect(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number
+  ): void {
+    context.beginPath();
+    context.moveTo(x + radius, y);
+    context.lineTo(x + width - radius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + radius);
+    context.lineTo(x + width, y + height - radius);
+    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    context.lineTo(x + radius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - radius);
+    context.lineTo(x, y + radius);
+    context.quadraticCurveTo(x, y, x + radius, y);
+    context.closePath();
   }
 
   private resizeImageDataUrl(src: string, maxWidth: number): Promise<string> {

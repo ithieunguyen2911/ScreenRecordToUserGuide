@@ -5,14 +5,19 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 export function normalizeFocus(focus: ActionFocus): ActionFocus {
   const width = clamp(focus.width || 20, 8, 90);
   const height = clamp(focus.height || 12, 8, 90);
-
-  return {
+  const normalized: ActionFocus = {
     x: clamp(focus.x, 0, 100 - width),
     y: clamp(focus.y, 0, 100 - height),
     width,
     height,
     label: focus.label,
   };
+
+  if (focus.labelX !== undefined) normalized.labelX = focus.labelX;
+  if (focus.labelY !== undefined) normalized.labelY = focus.labelY;
+  if (focus.labelWidth !== undefined) normalized.labelWidth = focus.labelWidth;
+
+  return normalized;
 }
 
 export function getFallbackFocus(step: GuideStep, index: number): ActionFocus {
