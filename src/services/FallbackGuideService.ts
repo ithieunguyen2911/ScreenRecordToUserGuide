@@ -1,4 +1,5 @@
 import { RecordedAction, UserGuide } from '../models';
+import { stepTextService } from './StepTextService';
 
 function createTimelineSteps(durationSeconds: number) {
   const duration = Math.max(1, Math.round(durationSeconds));
@@ -20,10 +21,8 @@ export function createFallbackGuide(fileName: string, durationSeconds: number, a
   const steps = actions.length > 0
     ? actions.map((action, index) => ({
         timestamp: action.timestamp,
-        title: `${index + 1}. ${action.label}`,
-        description: action.target
-          ? `Thao tac ${action.label.toLowerCase()} tren ${action.target}${action.controlType ? ` (${action.controlType})` : ''}.`
-          : `Thao tac ${action.label.toLowerCase()} duoc ghi lai trong man hinh dang record.`,
+        title: stepTextService.createTitle(action, index),
+        description: stepTextService.createDescription(action),
         action: action.action,
         focus: {
           x: action.x,

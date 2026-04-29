@@ -60,9 +60,20 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
 
   const handleStartRecording = async () => {
     try {
-      await recordingService.startRecording(recorderSettings, videoPreviewRef.current);
+      if (!settings) {
+        alert('Thiếu cấu hình record. Vui lòng quay lại màn hình setting.');
+        return;
+      }
+
       const helperStarted = settings ? await desktopHelperService.start(settings) : false;
       helperStartedRef.current = helperStarted;
+      if (!helperStarted) {
+        setHelperMessage('Desktop helper: not connected');
+        alert('Desktop Helper chưa kết nối. Hãy chạy app bằng "npm run dev" để tự bật helper, hoặc chạy "npm run helper:dev" ở terminal khác.');
+        return;
+      }
+
+      await recordingService.startRecording(recorderSettings, videoPreviewRef.current);
       setHelperMessage(helperStarted
         ? 'Desktop helper: recording desktop actions'
         : 'Desktop helper: not connected, using video timeline fallback');
@@ -79,6 +90,10 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
       }, 1000);
       setIsRecording(true);
     } catch (err) {
+      if (helperStartedRef.current) {
+        await desktopHelperService.stop();
+        helperStartedRef.current = false;
+      }
       console.error("Error starting recording:", err);
       alert("Không thể bắt đầu quay màn hình. Hãy chọn một cửa sổ desktop hoặc toàn bộ màn hình và cấp quyền truy cập.");
     }

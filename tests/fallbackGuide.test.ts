@@ -10,13 +10,16 @@ const guide = createFallbackGuide('Desktop_App_Demo', 12, [
     y: 30,
     width: 10,
     height: 8,
-    target: 'button',
+    target: 'Lưu',
+    controlType: 'Button',
   },
 ]);
 
 assert.equal(guide.title, 'Desktop_App_Demo');
 assert.equal(guide.steps.length, 1);
 assert.equal(guide.steps[0].action, 'click');
+assert.equal(guide.steps[0].title, 'Click nút Lưu');
+assert.equal(guide.steps[0].description, 'Click vào nút Lưu.');
 assert.equal(guide.steps[0].focus?.x, 20);
 assert.deepEqual(guide.importantNotes, []);
 assert.equal(guide.introduction.includes('GEMINI_API_KEY'), false);

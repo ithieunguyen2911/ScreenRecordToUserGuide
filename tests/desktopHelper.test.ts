@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import { desktopHelperService } from '../src/services/DesktopHelperService';
 
 const originalFetch = globalThis.fetch;
+const requests: Array<{ url: string; init?: RequestInit }> = [];
 globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+  requests.push({ url: String(_input), init });
+  if (String(_input).endsWith('/session/start')) {
+    return {
+      ok: true,
+      json: async () => ({ ok: true, isRecording: true, actionCount: 0 }),
+    } as Response;
+  }
+
   if (init?.method === 'POST') {
     return {
       ok: true,
@@ -36,6 +45,19 @@ globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
 
 const status = await desktopHelperService.getStatus();
 assert.equal(status?.ok, true);
+
+const started = await desktopHelperService.start({
+  fileName: 'Record:bad/name',
+  useMicrophone: false,
+  saveToLocal: true,
+  storageRoot: 'C:\\Users\\HUU HIEU\\Downloads\\Temp',
+});
+assert.equal(started, true);
+const startRequest = requests.find(request => request.url.endsWith('/session/start'));
+assert.equal(startRequest?.init?.body, JSON.stringify({
+  storageRoot: 'C:\\Users\\HUU HIEU\\Downloads\\Temp',
+  recordName: 'Record_bad_name',
+}));
 
 const actions = await desktopHelperService.stop();
 assert.equal(actions.length, 1);
