@@ -1,0 +1,14 @@
+{
+  "name": "ScreenToGuide AI",
+  "description": "Chuyên gia quay màn hình và tạo hướng dẫn sử dụng (User Guide) tự động bằng AI, xuất bản PDF chuyên nghiệp.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "Screen Recording",
+    "AI Transcription",
+    "PDF Export"
+  ]
+}
