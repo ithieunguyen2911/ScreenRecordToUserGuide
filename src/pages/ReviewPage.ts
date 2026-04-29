@@ -57,11 +57,11 @@ export class ReviewPage {
     }
   }
 
-  exportToWord(): void {
+  async exportToWord(): Promise<void> {
     if (!this.guide) {
       throw new Error('No guide available to export');
     }
-    exportService.exportGuideToWord(this.guide, this.fileName);
+    await exportService.exportGuideToWord(this.guide, this.fileName);
   }
 
   isCurrentlyExporting(): boolean {

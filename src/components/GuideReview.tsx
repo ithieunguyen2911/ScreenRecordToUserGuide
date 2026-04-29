@@ -106,6 +106,15 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
     }
   };
 
+  const handleExportWord = async () => {
+    setIsExporting(true);
+    try {
+      await reviewPage.exportToWord();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const jumpToStepInVideo = (timestamp: number) => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = Math.max(timestamp, 0);
@@ -182,10 +191,11 @@ export default function GuideReview({ guide, fileName, videoBlob, onGuideChange 
               <Share2 className="w-4 h-4" />
             </button>
             <button
-              onClick={() => reviewPage.exportToWord()}
-              className="flex items-center gap-2 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-200 rounded-xl text-sm font-black uppercase tracking-widest border border-zinc-800 transition-all active:scale-95"
+              onClick={handleExportWord}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-5 py-3 bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-50 text-zinc-200 rounded-xl text-sm font-black uppercase tracking-widest border border-zinc-800 transition-all active:scale-95"
             >
-              <FileText className="w-4 h-4" />
+              {isExporting ? <div className="w-4 h-4 border-2 border-zinc-500/30 border-t-zinc-100 rounded-full animate-spin" /> : <FileText className="w-4 h-4" />}
               Word
             </button>
             <button

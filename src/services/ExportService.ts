@@ -3,6 +3,11 @@ import { jsPDF } from 'jspdf';
 import { UserGuide } from '../models';
 
 export class ExportService {
+  private readonly wordContentWidth = '6.25in';
+  private readonly wordContentWidthPt = '450pt';
+  private readonly wordImageDisplayWidthPixels = 600;
+  private readonly wordImageSourceMaxWidthPixels = 1800;
+
   async exportToPDF(elementId: string, fileName: string): Promise<void> {
     const element = document.getElementById(elementId);
     if (!element) {
@@ -136,50 +141,131 @@ export class ExportService {
     this.downloadBlob(pdf.output('blob'), `${fileName}.pdf`);
   }
 
-  exportGuideToWord(guide: UserGuide, fileName: string): void {
+  buildWordHtml(guide: UserGuide): string {
     const escapeHtml = (value: string) => value
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
+    const imageHtml = (src: string, alt: string) => `
+      <div class="guide-image-frame">
+        <img class="guide-image" src="${src}" alt="${escapeHtml(alt)}" width="${this.wordImageDisplayWidthPixels}" style="width: ${this.wordContentWidthPt}; max-width: ${this.wordContentWidthPt}; height: auto; display: block; border: 1px solid #ddd;" />
+      </div>
+    `;
+
     const stepsHtml = guide.steps.map((step, index) => `
       <section style="page-break-inside: avoid; margin: 24px 0;">
         <h2>${String(index + 1).padStart(2, '0')}. ${escapeHtml(step.title)}</h2>
         <p><strong>Action:</strong> ${escapeHtml(step.action)} | <strong>Time:</strong> ${step.timestamp.toFixed(1)}s</p>
         <p>${escapeHtml(step.description)}</p>
-        ${step.screenshot ? `<img src="${step.screenshot}" style="width: 100%; border: 1px solid #ddd; border-radius: 8px;" />` : ''}
+        ${step.screenshot ? imageHtml(step.screenshot, step.title) : ''}
         ${step.focus ? `<p><strong>Focus:</strong> ${escapeHtml(step.focus.label || 'Action')} (${step.focus.x.toFixed(1)}%, ${step.focus.y.toFixed(1)}%)</p>` : ''}
       </section>
     `).join('');
 
-    const html = `
+    return `
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
           <title>${escapeHtml(guide.title)}</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #202020; line-height: 1.55; }
+            @page WordSection1 { size: 8.5in 11in; margin: 0.7in 0.7in 0.7in 0.7in; }
+            div.WordSection1 { page: WordSection1; }
+            body { font-family: Arial, sans-serif; color: #202020; line-height: 1.55; margin: 0; }
+            .word-body { width: ${this.wordContentWidth}; max-width: ${this.wordContentWidth}; }
             h1 { color: #111111; }
             h2 { color: #f97316; margin-bottom: 4px; }
             p { margin: 6px 0 12px; }
+            .guide-image-frame {
+              width: ${this.wordContentWidth};
+              max-width: ${this.wordContentWidth};
+              margin: 10px 0 14px;
+              overflow: hidden;
+            }
+            .guide-image {
+              width: ${this.wordContentWidth};
+              max-width: ${this.wordContentWidth};
+              mso-width-alt: ${this.wordImageDisplayWidthPixels};
+              height: auto;
+              display: block;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+            }
           </style>
         </head>
         <body>
-          <h1>${escapeHtml(guide.title)}</h1>
-          <p>${escapeHtml(guide.introduction)}</p>
-          <h2>Table of Contents</h2>
-          <ol>${guide.steps.map(step => `<li>${escapeHtml(step.title)}</li>`).join('')}</ol>
-          ${stepsHtml}
+          <div class="WordSection1">
+            <div class="word-body">
+              <h1>${escapeHtml(guide.title)}</h1>
+              <p>${escapeHtml(guide.introduction)}</p>
+              <h2>Table of Contents</h2>
+              <ol>${guide.steps.map(step => `<li>${escapeHtml(step.title)}</li>`).join('')}</ol>
+              ${stepsHtml}
+            </div>
+          </div>
         </body>
       </html>
     `;
+  }
+
+  async prepareGuideForWord(guide: UserGuide): Promise<UserGuide> {
+    const steps = await Promise.all(guide.steps.map(async (step) => ({
+      ...step,
+      screenshot: step.screenshot
+        ? await this.resizeImageDataUrl(step.screenshot, this.wordImageSourceMaxWidthPixels)
+        : step.screenshot,
+    })));
+
+    return {
+      ...guide,
+      steps,
+    };
+  }
+
+  async exportGuideToWord(guide: UserGuide, fileName: string): Promise<void> {
+    const resizedGuide = await this.prepareGuideForWord(guide);
+    const html = this.buildWordHtml(resizedGuide);
 
     this.downloadBlob(
       new Blob([html], { type: 'application/msword;charset=utf-8' }),
       `${fileName}.doc`
     );
+  }
+
+  private resizeImageDataUrl(src: string, maxWidth: number): Promise<string> {
+    if (!src.startsWith('data:image/') || typeof Image === 'undefined' || typeof document === 'undefined') {
+      return Promise.resolve(src);
+    }
+
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        if (!image.naturalWidth || image.naturalWidth <= maxWidth) {
+          resolve(src);
+          return;
+        }
+
+        const scale = maxWidth / image.naturalWidth;
+        const canvas = document.createElement('canvas');
+        canvas.width = maxWidth;
+        canvas.height = Math.round(image.naturalHeight * scale);
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          resolve(src);
+          return;
+        }
+
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.onerror = () => resolve(src);
+      image.src = src;
+    });
   }
 
   downloadBlob(blob: Blob, fileName: string): void {
