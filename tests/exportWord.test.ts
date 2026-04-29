@@ -34,6 +34,9 @@ assert.match(html, /<div class="guide-image-frame">/);
 assert.match(html, /<img class="guide-image"/);
 assert.match(html, /width="600"/);
 assert.match(html, /style="width: 450pt; max-width: 450pt; height: auto;/);
+assert.doesNotMatch(html, /<strong>Action:<\/strong>/);
+assert.doesNotMatch(html, /<strong>Time:<\/strong>/);
+assert.doesNotMatch(html, /<strong>Focus:<\/strong>/);
 assert.doesNotMatch(html, /style="width:\s*100%/);
 
 const globalForTest = globalThis as unknown as {

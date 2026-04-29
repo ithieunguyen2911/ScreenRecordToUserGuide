@@ -162,10 +162,8 @@ export class ExportService {
     const stepsHtml = guide.steps.map((step, index) => `
       <section style="page-break-inside: avoid; margin: 24px 0;">
         <h2>${String(index + 1).padStart(2, '0')}. ${escapeHtml(step.title)}</h2>
-        <p><strong>Action:</strong> ${escapeHtml(step.action)} | <strong>Time:</strong> ${step.timestamp.toFixed(1)}s</p>
         <p>${escapeHtml(step.description)}</p>
         ${step.screenshot ? imageHtml(step.screenshot, step.title) : ''}
-        ${step.focus ? `<p><strong>Focus:</strong> ${escapeHtml(step.focus.label || 'Action')} (${step.focus.x.toFixed(1)}%, ${step.focus.y.toFixed(1)}%)</p>` : ''}
       </section>
     `).join('');
 
