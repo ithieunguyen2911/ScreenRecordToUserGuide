@@ -9,6 +9,7 @@ export class SetupPage {
       fileName: `Record_${new Date().toLocaleDateString().replace(/\//g, '-')}_${new Date().toLocaleTimeString().replace(/:/g, '-')}`,
       useMicrophone: false,
       saveToLocal: true,
+      storageRoot: 'C:\\Users\\HUU HIEU\\Downloads\\Temp',
     };
     this.micPermission = 'prompt';
   }

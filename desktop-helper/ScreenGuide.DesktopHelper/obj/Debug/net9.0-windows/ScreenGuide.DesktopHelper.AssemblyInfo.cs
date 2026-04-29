@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ScreenGuide.DesktopHelper")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ca4e3c55b8e37bb5df89a67e5ef4bd464f9f435")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fdb8ab9def1d1451e04cb43a11342d0db6264e38")]
 [assembly: System.Reflection.AssemblyProductAttribute("ScreenGuide.DesktopHelper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ScreenGuide.DesktopHelper")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

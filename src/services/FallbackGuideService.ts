@@ -22,7 +22,7 @@ export function createFallbackGuide(fileName: string, durationSeconds: number, a
         timestamp: action.timestamp,
         title: `${index + 1}. ${action.label}`,
         description: action.target
-          ? `Thao tac ${action.label.toLowerCase()} tren ${action.target}.`
+          ? `Thao tac ${action.label.toLowerCase()} tren ${action.target}${action.controlType ? ` (${action.controlType})` : ''}.`
           : `Thao tac ${action.label.toLowerCase()} duoc ghi lai trong man hinh dang record.`,
         action: action.action,
         focus: {

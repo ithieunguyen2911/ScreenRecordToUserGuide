@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Windows.Forms;
 
 namespace ScreenGuide.DesktopHelper;
@@ -13,6 +14,11 @@ public sealed class ScreenshotCapture
 
     public string CaptureDesktopAsDataUrl()
     {
+        return $"data:image/jpeg;base64,{Convert.ToBase64String(CaptureDesktopJpegBytes())}";
+    }
+
+    public byte[] CaptureDesktopJpegBytes()
+    {
         var bounds = GetVirtualScreenBounds();
         using var bitmap = new Bitmap(bounds.Width, bounds.Height);
         using var graphics = Graphics.FromImage(bitmap);
@@ -20,6 +26,6 @@ public sealed class ScreenshotCapture
 
         using var stream = new MemoryStream();
         bitmap.Save(stream, ImageFormat.Jpeg);
-        return $"data:image/jpeg;base64,{Convert.ToBase64String(stream.ToArray())}";
+        return stream.ToArray();
     }
 }

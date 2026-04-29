@@ -3,7 +3,6 @@ import { Camera, StopCircle, Video, Settings as SettingsIcon, Sparkles } from 'l
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, RecordingResult, RecordingSettings } from '../models';
 import { recordingService } from '../services/RecordingService';
-import { interactionCaptureService } from '../services/InteractionCaptureService';
 import { desktopHelperService } from '../services/DesktopHelperService';
 
 interface ScreenRecorderProps {
@@ -15,9 +14,12 @@ interface ScreenRecorderProps {
 export default function ScreenRecorder({ onRecordingComplete, isProcessing, settings }: ScreenRecorderProps) {
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
+  const helperPollRef = useRef<number | null>(null);
+  const helperStartedRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [helperMessage, setHelperMessage] = useState('Desktop helper: checking...');
   const [recorderSettings, setRecorderSettings] = useState<RecordingSettings>({
     quality: 'high',
     format: 'webm',
@@ -33,6 +35,7 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (helperPollRef.current) clearInterval(helperPollRef.current);
       recordingService.cleanup();
     };
   }, [settings]);
@@ -58,8 +61,22 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
   const handleStartRecording = async () => {
     try {
       await recordingService.startRecording(recorderSettings, videoPreviewRef.current);
-      await desktopHelperService.start();
-      interactionCaptureService.start(videoPreviewRef.current);
+      const helperStarted = settings ? await desktopHelperService.start(settings) : false;
+      helperStartedRef.current = helperStarted;
+      setHelperMessage(helperStarted
+        ? 'Desktop helper: recording desktop actions'
+        : 'Desktop helper: not connected, using video timeline fallback');
+      if (helperPollRef.current) clearInterval(helperPollRef.current);
+      helperPollRef.current = window.setInterval(async () => {
+        const debug = await desktopHelperService.getDebugStatus();
+        if (!debug) {
+          setHelperMessage('Desktop helper: not connected, using video timeline fallback');
+          return;
+        }
+        setHelperMessage(debug.isHookInstalled
+          ? `Desktop helper: recording desktop actions (${debug.actionCount})`
+          : 'Desktop helper: hook not installed');
+      }, 1000);
       setIsRecording(true);
     } catch (err) {
       console.error("Error starting recording:", err);
@@ -68,10 +85,23 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
   };
 
   const handleStopRecording = async () => {
+    if (helperPollRef.current) {
+      clearInterval(helperPollRef.current);
+      helperPollRef.current = null;
+    }
     const result = await recordingService.stopRecording();
-    const browserActions = interactionCaptureService.stop();
     const desktopActions = await desktopHelperService.stop();
-    result.actions = desktopActions.length > 0 ? desktopActions : browserActions;
+    if (settings?.saveToLocal && helperStartedRef.current) {
+      const uploadResult = await desktopHelperService.uploadVideo(result.blob, settings.fileName);
+      result.localVideoPath = uploadResult?.videoPath;
+    }
+    const helperDebug = await desktopHelperService.getDebugStatus();
+    result.sessionFolder = helperDebug?.sessionFolder;
+    setHelperMessage(desktopActions.length > 0
+      ? `Desktop helper: captured ${desktopActions.length} actions`
+      : `Desktop helper: no actions captured${helperDebug?.isHookInstalled ? '' : ' (hook not installed)'}`);
+    result.actions = desktopActions;
+    helperStartedRef.current = false;
     setIsRecording(false);
     onRecordingComplete(result);
   };
@@ -126,6 +156,12 @@ export default function ScreenRecorder({ onRecordingComplete, isProcessing, sett
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">Recording</span>
             <span className="text-xs font-mono text-white border-l border-white/20 pl-3">{formatTime(duration)}</span>
+          </div>
+        )}
+
+        {isRecording && (
+          <div className="absolute top-6 right-6 max-w-xs rounded-full border border-zinc-700 bg-black/70 px-4 py-2 text-[11px] font-bold text-zinc-200 backdrop-blur-md">
+            {helperMessage}
           </div>
         )}
 

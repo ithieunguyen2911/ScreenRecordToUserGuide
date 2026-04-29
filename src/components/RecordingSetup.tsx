@@ -52,6 +52,23 @@ export default function RecordingSetup({ onStart }: RecordingSetupProps) {
             </div>
           </div>
 
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-[0.2em] text-orange-500 font-black block ml-1">Thư mục lưu local</label>
+            <div className="relative group">
+              <input
+                type="text"
+                value={settings.storageRoot}
+                onChange={(e) => updateSettings({ storageRoot: e.target.value })}
+                className="w-full bg-zinc-950/50 border-2 border-zinc-900 focus:border-orange-500/50 text-white rounded-2xl px-6 py-4 outline-none transition-all font-bold placeholder:text-zinc-700"
+                placeholder="C:\Users\HUU HIEU\Downloads\Temp"
+              />
+              <Folder className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
+            </div>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium ml-1">
+              Desktop Helper sẽ tạo folder Record_* và lưu video/screenshot từng thao tác tại đây.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <button
               onClick={handleMicToggle}

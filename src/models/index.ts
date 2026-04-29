@@ -26,6 +26,7 @@ export interface AppSettings {
   fileName: string;
   useMicrophone: boolean;
   saveToLocal: boolean;
+  storageRoot: string;
 }
 
 export interface RecordingSettings {
@@ -40,11 +41,13 @@ export interface RecordingResult {
   mimeType: string;
   duration: number;
   actions?: RecordedAction[];
+  localVideoPath?: string;
+  sessionFolder?: string;
 }
 
 export interface RecordedAction {
   timestamp: number;
-  action: 'click' | 'type' | 'scroll';
+  action: 'click' | 'type' | 'scroll' | 'select' | 'hotkey' | 'navigate';
   label: string;
   x: number;
   y: number;
@@ -52,6 +55,8 @@ export interface RecordedAction {
   height: number;
   target?: string;
   screenshot?: string;
+  screenshotPath?: string;
+  controlType?: string;
 }
 
 export interface DesktopHelperStatus {
@@ -60,9 +65,17 @@ export interface DesktopHelperStatus {
   actionCount: number;
 }
 
+export interface DesktopHelperDebugStatus {
+  isHookInstalled: boolean;
+  lastEventAt?: string;
+  actionCount: number;
+  hookThreadState: string;
+  sessionFolder?: string;
+}
+
 export interface DesktopHelperAction {
   timestamp: number;
-  type: 'click' | 'type' | 'scroll';
+  type: 'click' | 'type' | 'scroll' | 'select' | 'hotkey' | 'navigate';
   screenX: number;
   screenY: number;
   width: number;
@@ -72,6 +85,14 @@ export interface DesktopHelperAction {
   screenWidth: number;
   screenHeight: number;
   label: string;
+  elementName?: string;
+  controlType?: string;
   screenshot: string;
+  screenshotPath?: string;
   capturedAt: string;
+}
+
+export interface DesktopHelperVideoUploadResult {
+  saved: boolean;
+  videoPath?: string;
 }

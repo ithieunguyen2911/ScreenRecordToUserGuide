@@ -5,6 +5,7 @@ const string CorsPolicy = "ScreenGuideWebApp";
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:55231");
 builder.Services.AddSingleton<ScreenshotCapture>();
+builder.Services.AddSingleton<ElementInspector>();
 builder.Services.AddSingleton<DesktopActionSession>();
 builder.Services.AddSingleton<NativeInputHook>();
 builder.Services.AddCors(options =>
@@ -31,9 +32,20 @@ app.MapGet("/health", (DesktopActionSession session) =>
     return Results.Ok(new HelperStatus(true, session.IsRecording, session.GetActions().Count));
 });
 
-app.MapPost("/session/start", (DesktopActionSession session, NativeInputHook hook) =>
+app.MapGet("/session/debug", (DesktopActionSession session, NativeInputHook hook) =>
 {
-    session.Start();
+    return Results.Ok(new HelperDebugStatus(
+        hook.IsInstalled,
+        hook.LastEventAt,
+        session.GetActions().Count,
+        hook.HookThreadState,
+        session.SessionFolder
+    ));
+});
+
+app.MapPost("/session/start", (StartSessionRequest? request, DesktopActionSession session, NativeInputHook hook) =>
+{
+    session.Start(request?.StorageRoot, request?.RecordName);
     hook.Start();
     return Results.Ok(new HelperStatus(true, session.IsRecording, session.GetActions().Count));
 });
@@ -48,6 +60,19 @@ app.MapPost("/session/stop", (DesktopActionSession session, NativeInputHook hook
 app.MapGet("/session/actions", (DesktopActionSession session) =>
 {
     return Results.Ok(session.GetActions());
+});
+
+app.MapPost("/session/video", async (HttpRequest request, DesktopActionSession session) =>
+{
+    if (!request.HasFormContentType)
+    {
+        return Results.BadRequest(new UploadVideoResponse(false, null));
+    }
+
+    var form = await request.ReadFormAsync();
+    var file = form.Files.GetFile("video");
+    var path = await session.SaveVideoAsync(file);
+    return Results.Ok(new UploadVideoResponse(!string.IsNullOrWhiteSpace(path), path));
 });
 
 Console.WriteLine("ScreenGuide Desktop Helper listening on http://127.0.0.1:55231");

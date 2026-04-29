@@ -52,7 +52,7 @@ export default function App() {
     setRecordedBlob(blob);
     setNotice(null);
 
-    if (settings?.saveToLocal ?? true) {
+    if ((settings?.saveToLocal ?? true) && !result.localVideoPath) {
       exportService.downloadBlob(blob, `${fileName}.${getVideoExtension(blob)}`);
     }
 

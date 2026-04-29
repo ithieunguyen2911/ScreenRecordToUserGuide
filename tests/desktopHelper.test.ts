@@ -18,7 +18,9 @@ globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
           screenTop: 0,
           screenWidth: 1920,
           screenHeight: 1080,
-          label: 'Click here',
+          label: 'Click Search',
+          elementName: 'Search',
+          controlType: 'Button',
           screenshot: 'data:image/jpeg;base64,abc',
           capturedAt: new Date().toISOString(),
         },
@@ -38,9 +40,11 @@ assert.equal(status?.ok, true);
 const actions = await desktopHelperService.stop();
 assert.equal(actions.length, 1);
 assert.equal(actions[0].action, 'click');
+assert.equal(actions[0].label, 'Click Search');
+assert.equal(actions[0].target, 'Search');
 assert.equal(actions[0].screenshot, 'data:image/jpeg;base64,abc');
-assert.equal(Math.round(actions[0].x), 48);
-assert.equal(Math.round(actions[0].y), 47);
+assert.equal(Math.round(actions[0].x), 50);
+assert.equal(Math.round(actions[0].y), 50);
 
 globalThis.fetch = originalFetch;
 
